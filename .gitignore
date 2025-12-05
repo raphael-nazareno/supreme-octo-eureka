@@ -1,0 +1,35 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE config
+.vscode/
+.idea/
+
+# BIG STUFF – keep local only
+data/
+datasets/
+ml/models/
+ml/checkpoints/
+backtests/
+experiments/backtests/results/
+logs/
+artifacts/
+
+# Large binary formats
+*.csv
+*.parquet
+*.feather
+*.npz
+*.pkl
+*.h5
+
+# OS junk
+.DS_Store
+Thumbs.db

@@ -1,0 +1,33 @@
+{
+  "default": {
+    "horizon_min": 15,
+    "models_root": "ml/models/XGBoost",
+    "train_frac": 0.7,
+    "val_frac": 0.15,
+    "n_estimators": 500,
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "subsample": 0.9,
+    "colsample_bytree": 0.8,
+    "min_child_weight": 1.0,
+    "reg_alpha": 0.0,
+    "reg_lambda": 1.0,
+    "early_stopping_rounds": 50,
+    "n_jobs": -1,
+    "feature_version": 1
+  },
+  "coins": {
+    "btc_usd": {
+      "model_version": 1,
+      "model_input_path": "ml/models/XGBoost/btc_usd/btc_usd_model_input_15m.parquet"
+    },
+    "eth_usd": {
+      "model_version": 1,
+      "model_input_path": "ml/models/XGBoost/eth_usd/eth_usd_model_input_15m.parquet"
+    },
+    "sol_usd": {
+      "model_version": 1,
+      "model_input_path": "ml/models/XGBoost/sol_usd/sol_usd_model_input_15m.parquet"
+    }
+  }
+}

@@ -1,0 +1,72 @@
+1. Backtest – “What would have happened if I traded like this?”
+
+Think: simulation of a strategy on recent data.
+
+- Weekly 7-day backtest might do:
+- Take your model + a candidate policy
+(e.g. “go long if p_up > 0.55, size = 1%, TP/SL = X/Y”).
+- Replay the last 7 days bar-by-bar, in time order.
+- At each bar:
+  - Compute features.
+  - Ask the model for predictions.
+  - Apply the policy to decide LONG / SHORT / FLAT.
+  - Update virtual positions and P&L.
+
+Outputs are things like:
+
+- Total P&L over those 7 days
+- Sharpe / max drawdown
+- Win rate, avg win / avg loss
+- Trade count, exposure, etc.
+- Per-coin breakdown (BTC/ETH/SOL)
+
+You use this to answer:
+
+- “Is this strategy variant any good on recent data?”
+- “What if I tighten TP/SL, or adjust thresholds?”
+- “Is the model still behaving reasonably, or has edge decayed?”
+
+Backtest is hypothetical – it doesn’t care what you actually did last week, only what you would have done under a specific rule set.
+
+
+
+
+
+2. Post-mortem – “Given what I actually did, what went right/wrong?”
+
+Think: autopsy on real (or paper) trades / decisions.
+
+Weekly 7-day post-mortem might:
+
+- Take your real trade log or “decisions log” for the last 7 days:
+  - timestamps
+  - features at decision time
+  - model outputs (p_up, etc)
+  - action taken (long/short/flat, size)
+  - realized P&L for each trade
+- Join that with market data to reconstruct:
+  - what the alternative outcomes would have been (e.g. if you stayed flat, or sized differently)
+- Slice & analyse:
+
+Examples of questions:
+
+- Model quality
+  - When model said p_up > 0.6, how often was it actually right?
+  - Are big-confidence trades actually more profitable than low-confidence ones (calibration)?
+- Strategy quality
+  - Did we exit too early? Too late?
+  - Are we trading too much in noisy periods (e.g. overnight chop)?
+- Operational issues
+  - Any missed signals?
+  - Latency / slippage outliers?
+  - Bugs in order sizing/routing?
+
+So: post-mortem is about understanding and improving behaviour of:
+- the model
+- the policy
+- and the “plumbing” (execution, risk, etc.)
+
+Using what actually happened last week, not just a hypothetical run.
+
+
+

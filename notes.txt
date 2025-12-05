@@ -1,0 +1,371 @@
+⚠️ Caveats (Not blockers, just considerations):
+
+TP/SL logic assumes bar-high/low can be hit in any order, which is fine for conservative realism—but may need refinement if later using tick-level data or modeling intra-bar paths (e.g., for options or tight spreads).
+
+Floating-point comparisons (like bar.low <= stop_loss <= bar.high) are okay for now, but in production, consider rounding precision to avoid floating error traps.
+
+No latency modeling yet (e.g., signal delay, order routing time)—but totally fine at this stage.
+
+
+🔁 Step-by-Step Progression
+1. Short Term (Now–Few Weeks)
+
+✅ Logistic Regression: Fast, interpretable baseline.
+
+🚀 XGBoost (XGBClassifier): Best mix of power, flexibility, and speed for tabular data.
+
+🎯 Use walk-forward validation (which you’re already doing).
+
+2. Medium Term
+
+✅ LightGBM: Try this in parallel with XGBoost – it's faster and can scale to more symbols/timeframes.
+
+🧠 MLPClassifier (Scikit-learn): Simple feed-forward network – gives a flavor of neural nets.
+
+📊 Feature Selection: Add techniques like SHAP or permutation importance.
+
+3. Longer Term
+
+🧠 LSTM/GRU (via PyTorch or TensorFlow): For raw price/time-series modeling if you want to go beyond indicators.
+
+💡 Transformer-based models: Only if you have large data and strong compute (e.g., BTC/ETH tick data).
+
+🤝 Multi-asset models: Once BTC/ETH/SOL are stable independently, explore shared model embeddings.
+
+🔮 Bonus Considerations
+
+Ensembling: Combine multiple models (e.g., XGB + Logistic).
+
+AutoML: Use TPOT or H2O.ai to discover model + feature pipelines.
+
+Reinforcement Learning: Only after you’ve nailed down a strong predictive model and want to directly optimize trading logic.
+
+
+
+If you are TESTING → use walk-forward.
+If you are TRADING → use a single trained model.
+
+
+========================================================================================
+
+Data + features + labels
+
+- Fetch raw candles from Alpaca
+- Build multi-timeframe features
+- Build model_input_15m with labels (y_dir_fwd_15m, etc.)
+
+----------------------------------------------------------------------------------------
+
+Fetch raw data --> Test --> Compute features --> Test --> Convert Files to Model Inputs --> Test
+
+fetcher_alpaca.py --> test_flecher_outputs.py --> build_multitimeframe_features.py --> test_features.py --> build_model_input_from_features.py --> test_model_input.py
+
+1. Fetch raw candles from Alpaca
+python data/fetcher_alpaca.py `
+  --symbols BTC/USD ETH/USD SOL/USD `
+  --timeframes 1m `
+  --years 3 `
+  --output-dir data `
+  --resume `
+  --downcast `
+  --log-level INFO `
+  --workers 3
+
+This will create e.g.:
+
+data/raw/BTC_USD/BTC_1m_raw.parquet
+data/raw/ETH_USD/ETH_1m_raw.parquet
+data/raw/SOL_USD/SOL_1m_raw.parquet
+
+TEST --> pytest .\tests\test_fetcher_outputs.py -q
+
+
+
+2. Build multi-timeframe features
+
+python ml/build_multitimeframe_features.py `
+  --symbols BTC/USD ETH/USD SOL/USD `
+  --timeframe 1m `
+  --raw-dir data `
+  --out-dir data `
+  --target-tz Australia/Melbourne
+
+This should produce:
+
+data/processed/btc_usd/btc_usd_1m_features.parquet
+data/processed/eth_usd/eth_usd_1m_features.parquet
+data/processed/sol_usd/sol_usd_1m_features.parquet
+
+TEST --> pytest .\tests\test_features.py -q
+
+
+
+3. Build model_input_15m with labels (y_dir_fwd_15m, etc.)
+
+Command for BTC
+python ml/build_model_input_from_features.py `
+  --features-path data/processed/features/btc_usd/btc_usd_1m_features.parquet `
+  --horizon-min 15
+
+For ETH 
+python ml/build_model_input_from_features.py `
+  --features-path data/processed/features/eth_usd/eth_usd_1m_features.parquet `
+  --horizon-min 15
+
+For SOL
+python ml/build_model_input_from_features.py `
+  --features-path data/processed/features/sol_usd/sol_usd_1m_features.parquet `
+  --horizon-min 15
+
+Features file → 1m
+Model input file → 15m
+
+data/processed/features/btc_usd/btc_usd_1m_features.parquet
+   --> ml/models/XGBoost/btc_usd/btc_usd_model_input_15m.parquet
+
+
+TEST --> python tests/test_model_input.py --coin btc_usd --horizon-min 15
+         python tests/test_model_input.py --coin eth_usd --horizon-min 15
+         python tests/test_model_input.py --coin sol_usd --horizon-min 15
+
+===================================================================================================
+
+NEXT STEPS:
+1. Train a baseline model per coin on y_dir_fwd_15m
+2. Define a very simple trading policy using the model outputs
+3. Run a first backtest over recent data for 1 coin
+
+===================================================================================================
+
+Training program (what train_xgboost.py does)
+
+- Takes one coin’s model_input file
+- Learns a model that predicts “will price be up in 15 minutes?”
+- Saves:
+   - a model file (xgb_btc_usd_1m_15m_dir_fv1_v001.json)
+   - a metrics file (..._metrics.json) so you know how good it is
+
+----------------------------------------------------------------------------------------------------
+
+
+python ml/trainers/xgboost/train_xgboost.py `
+  --coin btc_usd `
+  --config ml/trainers/xgboost/train_config_xgb.json
+`
+python ml/trainers/xgboost/train_xgboost.py `
+  --coin eth_usd `
+  --config ml/trainers/xgboost/train_config_xgb.json
+`
+python ml/trainers/xgboost/train_xgboost.py `
+  --coin sol_usd `
+  --config ml/trainers/xgboost/train_config_xgb.json
+
+Save:
+model → ml/models/XGBoost/<coin>/xgb_<coin>_1m_15m_dir_fv1_v001.json
+metrics → ml/models/XGBoost/<coin>/xgb_<coin>_1m_15m_dir_fv1_v001_metrics.json
+
+
+TEST --> python -m pytest tests/test_trained_xgb_models.py -q
+
+=====================================================================================================
+
+Backtesting 
+Given a trained XGBoost direction model (15-minute horizon on 1-minute bars), simulate taking long trades when the model is confident enough, and see if that produces a decent PnL after fees.
+
+Data we already have per coin:
+- ml/models/XGBoost/<coin>/<coin>_model_input_15m.parquet
+   - Features: ~27 columns (TA, returns, etc.)
+   - Labels:
+      - y_ret_fwd_15m (log forward return over 15m)
+      - y_dir_fwd_15m (−1 / 0 / +1 raw, but model trained on binary: y > 0)
+- Saved model:
+   - ml/models/XGBoost/<coin>/xgb_<coin>_1m_15m_dir_fv1_v001.json
+
+We use the test slice of model_input (same split as training) for backtesting
+
+-----------------------------------------------------------------------------------------------------------
+
+1. Backtest inputs & assumptions
+
+For each coin (BTC, ETH, SOL), we define a simple config:
+- Coin: e.g. btc_usd
+- Horizon: 15 minutes (matches labels)
+- Thresholds to test: e.g. [0.50, 0.55, 0.60]
+(probability p_up above this → trade)
+- Fees/spread assumption:
+   - Example: 0.05% per side (0.1% round-trip)
+   - Represent as fee_rate = 0.001 (you can tweak per exchange later)
+- Position size:
+   - For first version: fixed notional per trade, e.g. $100 or “1 unit”
+   - We care about edge, not exact dollar amounts yet.
+- No overlapping trades per coin:
+   - If you open a trade at time t, you don’t open another for that coin until it’s closed at t+15m.
+   - (Makes equity curve / drawdowns realistic.)
+
+We’ll backtest per coin, then later compare coins.
+
+-----------------------------------------------------------------------------------------------------------
+
+2. Backtest logic (per coin, per threshold)
+
+Using only the test period:
+1. Load model + test slice
+   - From model_input:
+      - X_test = all feature columns
+      - y_ret_fwd_15m = forward log return
+   - Load XGBoost model for that coin.
+
+2. Get model probabilities
+   For each row t in test data:
+    - p_up[t] = model.predict_proba(X_test[t])[:, 1]
+     (probability price will be higher after 15m)
+
+3. Walk forward through time
+   We simulate sequentially, respecting time order:
+     - Keep current_position = None or {entry_time, entry_price, size}.
+     - For each bar t:
+     
+       a. Close existing trade if its horizon is done
+       - If current_position exists and t >= entry_time + 15m:
+         - Use the actual future price/return to compute PnL:
+           - Simplest: use the precomputed y_ret_fwd_15m from the row at entry_time.
+           - Convert log-return to simple return:
+             - simple_ret = exp(y_ret_fwd_15m) - 1
+           - Apply fees:
+             - net_ret = simple_ret - fee_rate
+           - Update equity:
+             - equity *= (1 + net_ret * position_fraction)
+               (or equity += notional * net_ret if you use fixed size)
+           - Log the trade (see section 3).
+           - Set current_position = None.
+
+       b. Decide to open a new trade
+         - If no open position:
+           - Check model confidence at time t:
+           - If p_up[t] >= threshold:
+             - Open a long:
+               - entry_time = current timestamp
+               - entry_price = close[t]
+               - size = 1 unit (or based on equity)
+             - Pay entry fee (conceptually we can include in fee_rate).
+         - If position is open: do nothing until it’s closed at horizon.
+         
+       - (Later you can let positions run longer or add stops/TPs. For now: fixed 15m hold.)
+
+4. End of test period
+- Close any remaining open trades at last available forward price if possible, or just ignore last incomplete trade.
+
+
+python experiments/backtests/xgboost_backtests/backtest_xgb_dir_15m_v1/backtest_xgb_dir_15m.py `
+  --config experiments/backtests/xgboost_backtests/backtest_xgb_dir_15m_v1/backtest_xgb_dir_15m_v1_config.json `
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------------
+3. What we log for post-analysis
+
+For each executed trade, log a row like this:
+
+coin (btc_usd / eth_usd / sol_usd)
+model_version (e.g. v001)
+threshold (e.g. 0.55)
+entry_ts
+exit_ts
+entry_price
+exit_price
+fwd_log_return
+gross_simple_return
+net_simple_return (after fees)
+p_up_at_entry
+equity_before
+equity_after
+
+This can go into something like:
+
+ml/backtests/results/xgb_dir_15m/<coin>_threshold_0.55_trades.parquet
+Plus a summary JSON with metrics per (coin, threshold).
+
+This log is exactly what your future post-mortem script will chew on.
+
+------------------------------------------------------------------------------------------------------------------------------
+
+4 . Backtest metrics we care about
+
+Once the simulation is done for a (coin, threshold):
+
+1. Basic stats
+
+- n_trades
+- Win rate (% trades with net_ret > 0)
+- Avg win, avg loss
+- Profit factor = (sum gains) / (sum losses)
+- Expectancy per trade = mean(net_ret)
+
+2. Equity curve & risk
+
+- Equity over time (starting from e.g. 10,000 units)
+- Max drawdown
+- Volatility of returns
+- Sharpe-like ratio: mean(daily_ret) / std(daily_ret)
+
+3. Label + signal sanity
+
+- Distribution of p_up on winning vs losing trades.
+- Does higher p_up actually correlate with better outcomes?
+
+You’ll be especially interested in:
+
+- Is profit factor > 1.2–1.3?
+- Is max drawdown tolerable?
+- How sensitive is PnL to small changes in threshold?
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+5. Comparing coins & picking live rules (later)
+
+After running the backtest for each coin and multiple thresholds:
+
+- For each coin, choose one threshold that balances: 
+   - Reasonable number of trades (not too few, not thousands).
+   - Positive expectancy.
+   - Acceptable drawdown.
+
+Example outcome:
+
+BTC: threshold 0.58, ~300 trades, PF 1.25
+ETH: threshold 0.55, ~400 trades, PF 1.18
+SOL: threshold 0.60, ~250 trades, PF 1.30
+
+These choices become the paper trading recipe later.
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+6. Where this fits in your pipeline
+
+ml/
+  trainers/
+    xgboost/
+      train_xgboost.py
+      train_config_xgb.json
+  backtests/
+    xgb_dir_15m_backtest.py     # will implement this
+    configs/
+      backtest_xgb_15m.json     # thresholds, fees, coins
+  models/
+    XGBoost/
+      btc_usd/
+        btc_usd_model_input_15m.parquet
+        xgb_btc_usd_1m_15m_dir_fv1_v001.json
+        xgb_btc_usd_1m_15m_dir_fv1_v001_metrics.json
+      eth_usd/
+      sol_usd/
+  backtest_results/
+    xgb_dir_15m/
+      btc_usd_threshold_0.55_trades.parquet
+      ...

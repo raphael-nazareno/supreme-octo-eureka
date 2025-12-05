@@ -1,0 +1,45 @@
+
+---
+
+### 2) `configs/example.yaml`
+```yaml
+# Example config aligning with main.py CLI (CLI always overrides YAML).
+
+# Data
+features-path: "data/BTC_1m_features.csv"
+ohlc-path: "data/BTC_1m_ohlc.csv"
+
+# Model
+model-choice: "xgb"         # logreg | xgb | rf | mlp | lgb
+random-state: 42
+
+# Walk-Forward settings
+n-splits: 5
+min-train: 3000
+test-size: 500
+save-fold-models: "models/folds/run_2025-12-04T12-00-00"
+save-fold-probs: "models/probs/run_2025-12-04T12-00-00"
+oos-probs-out: "reports/oos_probs_BTC_1m.csv"
+
+# Final model
+save-model-path: "models/final/BTC-1m_xgb_2025-12-04.pkl"
+load-model-path: "models/final/BTC-1m_xgb_2025-12-04.pkl"
+enforce-future-only: true
+
+# Trading rules (NEXT-OPEN execution)
+thr-buy: 0.55
+thr-sell: 0.45
+sl-pct: 0.010
+tp-pct: 0.015
+enable-short: true
+
+# Costs and equity
+fee-bps: 1.0
+slippage-bps: 1.0
+initial-cash: 0.0
+
+# Reports
+report-json: "reports/backtest_BTC_1m.json"
+
+# Optional explicit features (comma-separated via CLI). Leave unset to infer from CSV.
+# feature-cols: "rsi_14,macd,signal,atr_14,ret_1,ret_5,ret_10"

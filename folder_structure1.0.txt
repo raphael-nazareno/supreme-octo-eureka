@@ -1,0 +1,33 @@
+home_quant_lab_v3/
+│
+├── main.py                     # Entry point: run backtest + model
+├── config.yaml                 # Strategy + ML + Alpaca params
+│
+├── data/
+│   ├── raw/                    # Unprocessed Alpaca data
+│   ├── processed/              # Feature-engineered CSVs for ML
+│   └── fetcher_alpaca.py       # API interface to Alpaca
+│
+├── strategy/
+│   ├── base_strategy.py        # Abstract class for all strategies
+│   ├── rule_based.py           # Classic strategies (e.g., SMA)
+│   └── model_strategy.py       # ML strategy (loads model, predicts)
+│
+├── core/
+│   ├── backtester.py           # Backtesting engine
+│   ├── analyzer.py             # Postmortem & metrics
+│   └── environment.py          # For ML agent (optional later)
+│
+├── ml/
+│   ├── trainer.py              # Training pipeline
+│   ├── model_wrapper.py        # Predict interface for backtester
+│   ├── features.py             # Feature engineering utils
+│   └── models/                 # Saved models (.pkl, .pt)
+│
+├── results/
+│   ├── equity_curve.csv
+│   ├── trades.csv
+│   └── logs/
+│
+└── tests/
+    └── test_backtester.py
