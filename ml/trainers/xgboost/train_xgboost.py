@@ -79,6 +79,21 @@ def parse_args() -> argparse.Namespace:
         default=0.15,
         help="Fraction of data for validation (default: 0.15). Remainder is used for test.",
     )
+    p.add_argument(
+        "--label-mode",
+        type=str,
+        default="gross",
+        choices=["gross", "net"],
+        help=(
+            "Which label to train on: "
+            "'gross' -> y_dir_fwd_{horizon}m, "
+            "'net'   -> y_dir_net_fwd_{horizon}m."
+        ),
+    )
+
+
+
+
     # Basic XGBoost hyperparameters
     p.add_argument("--n-estimators", type=int, default=500)
     p.add_argument("--max-depth", type=int, default=6)
@@ -173,13 +188,25 @@ def _find_model_input_path(
 
 
 def _select_feature_columns(df: pd.DataFrame) -> List[str]:
-    """Return list of numeric feature columns, excluding timestamp/symbol/labels."""
+    """Return list of numeric feature columns, excluding timestamp/symbol/labels & cost columns."""
     drop_cols = {"timestamp", "symbol"}
-    # Drop any label columns
-    drop_cols.update([c for c in df.columns if c.startswith("y_ret_fwd_") or c.startswith("y_dir_fwd_")])
+
+    # Drop any label or cost columns
+    drop_cols.update(
+        [
+            c
+            for c in df.columns
+            if c.startswith("y_ret_fwd_")
+            or c.startswith("y_dir_fwd_")
+            or c.startswith("y_ret_net_fwd_")
+            or c.startswith("y_dir_net_fwd_")
+            or c.startswith("y_fee_")
+            or c.startswith("y_micro_cost_")
+            or c.startswith("y_cost_")
+        ]
+    )
 
     candidate_cols = [c for c in df.columns if c not in drop_cols]
-    # Keep only numeric columns
     numeric_cols = df[candidate_cols].select_dtypes(include=[np.number]).columns.tolist()
     return numeric_cols
 
@@ -258,14 +285,26 @@ def main() -> int:
     print(f"[train_xgboost] Using model_input: {model_input_path}")
 
     df = pd.read_parquet(model_input_path)
+    if model_input_path.suffix == ".csv":
+        df = pd.read_csv(model_input_path)
+    elif model_input_path.suffix == ".parquet":
+        df = pd.read_parquet(model_input_path)
+    else:
+        raise ValueError(f"Unsupported model_input extension: {model_input_path.suffix}")
 
     if "timestamp" in df.columns:
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
         df = df.sort_values("timestamp")
 
-    label_col = f"y_dir_fwd_{horizon}m"
+    label_mode = getattr(args, "label_mode", "gross").lower()
+    if label_mode == "gross":
+        label_col = f"y_dir_fwd_{horizon}m"
+    else:
+        label_col = f"y_dir_net_fwd_{horizon}m"
+
     if label_col not in df.columns:
         raise KeyError(f"Label column {label_col} not found in model_input.")
+
 
     # --- FORCE LABELS TO BINARY 0/1 ---
     # We may have tri-state labels {-1, 0, 1} from the pipeline.

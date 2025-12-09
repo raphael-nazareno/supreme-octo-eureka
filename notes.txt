@@ -83,7 +83,7 @@ TEST --> pytest .\tests\test_fetcher_outputs.py -q
 
 2. Build multi-timeframe features
 
-python ml/build_multitimeframe_features.py `
+python ml/features/build_multitimeframe_features.py `
   --symbols BTC/USD ETH/USD SOL/USD `
   --timeframe 1m `
   --raw-dir data `
@@ -116,6 +116,18 @@ For SOL
 python ml/build_model_input_from_features.py `
   --features-path data/processed/features/sol_usd/sol_usd_1m_features.parquet `
   --horizon-min 15
+
+python ml/build_model_input_from_features.py `
+  --features-path data/processed/features/btc_usd/btc_usd_1m_features.parquet `
+  --horizon-min 15 
+python ml/build_model_input_from_features.py `
+  --features-path data/processed/features/eth_usd/eth_usd_1m_features.parquet `
+  --horizon-min 15 
+python ml/build_model_input_from_features.py `
+  --features-path data/processed/features/sol_usd/sol_usd_1m_features.parquet `
+  --horizon-min 15 
+
+
 
 Features file → 1m
 Model input file → 15m
@@ -150,15 +162,15 @@ Training program (what train_xgboost.py does)
 
 python ml/trainers/xgboost/train_xgboost.py `
   --coin btc_usd `
-  --config ml/trainers/xgboost/train_config_xgb.json
+  --config ml/trainers/xgboost/train_config_xgb_fv1_v001.json
 `
 python ml/trainers/xgboost/train_xgboost.py `
   --coin eth_usd `
-  --config ml/trainers/xgboost/train_config_xgb.json
+  --config ml/trainers/xgboost/train_config_xgb_fv1_v001.json
 `
 python ml/trainers/xgboost/train_xgboost.py `
   --coin sol_usd `
-  --config ml/trainers/xgboost/train_config_xgb.json
+  --config ml/trainers/xgboost/train_config_xgb_fv1_v001.json
 
 Save:
 model → ml/models/XGBoost/<coin>/xgb_<coin>_1m_15m_dir_fv1_v001.json

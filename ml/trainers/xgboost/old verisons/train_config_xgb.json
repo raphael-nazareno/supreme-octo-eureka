@@ -14,20 +14,21 @@
     "reg_lambda": 1.0,
     "early_stopping_rounds": 50,
     "n_jobs": -1,
-    "feature_version": 1
+    "feature_version": 1,
+    "label_mode": "net"    
   },
   "coins": {
     "btc_usd": {
-      "model_version": 1,
-      "model_input_path": "ml/models/XGBoost/btc_usd/btc_usd_model_input_15m.parquet"
+      "model_version": 2,
+      "model_input_path": "ml/models/XGBoost/xgb_dir_15m_v1/btc_usd/btc_usd_model_input_15m.csv"
     },
     "eth_usd": {
-      "model_version": 1,
-      "model_input_path": "ml/models/XGBoost/eth_usd/eth_usd_model_input_15m.parquet"
+      "model_version": 2,
+      "model_input_path": "ml/models/XGBoost/xgb_dir_15m_v1/eth_usd/eth_usd_model_input_15m.csv"
     },
     "sol_usd": {
-      "model_version": 1,
-      "model_input_path": "ml/models/XGBoost/sol_usd/sol_usd_model_input_15m.parquet"
+      "model_version": 2,
+      "model_input_path": "ml/models/XGBoost/xgb_dir_15m_v1/sol_usd/sol_usd_model_input_15m.csv"
     }
   }
 }
