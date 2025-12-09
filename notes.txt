@@ -259,6 +259,8 @@ Using only the test period:
 python experiments/backtests/xgboost_backtests/backtest_xgb_dir_15m_v1/backtest_xgb_dir_15m.py `
   --config experiments/backtests/xgboost_backtests/backtest_xgb_dir_15m_v1/backtest_xgb_dir_15m_v1_config.json `
 
+python experiments\backtests\xgboost_backtests\backtest_xgb_dir_15m_v2\backtest_xgb_dir_15m_v2.py `
+  --config experiments\backtests\xgboost_backtests\backtest_xgb_dir_15m_v2\backtest_xgb_dir_15m_v2.json 
 
 
 
