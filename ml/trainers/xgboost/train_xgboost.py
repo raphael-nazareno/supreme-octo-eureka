@@ -284,7 +284,6 @@ def main() -> int:
 
     print(f"[train_xgboost] Using model_input: {model_input_path}")
 
-    df = pd.read_parquet(model_input_path)
     if model_input_path.suffix == ".csv":
         df = pd.read_csv(model_input_path)
     elif model_input_path.suffix == ".parquet":

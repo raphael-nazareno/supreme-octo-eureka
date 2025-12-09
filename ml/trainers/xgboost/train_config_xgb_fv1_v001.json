@@ -23,15 +23,15 @@
   "coins": {
     "btc_usd": {
       "model_version": 1,
-      "model_input_path": "ml/models/XGBoost/xgb_dir_15m_v1/btc_usd/btc_usd_model_input_15m.csv"
+      "model_input_path": "ml/models/XGBoost/btc_usd/btc_usd_model_input_15m.parquet"
     },
     "eth_usd": {
       "model_version": 1,
-      "model_input_path": "ml/models/XGBoost/xgb_dir_15m_v1/eth_usd/eth_usd_model_input_15m.csv"
+      "model_input_path": "ml/models/XGBoost/eth_usd/eth_usd_model_input_15m.parquet"
     },
     "sol_usd": {
       "model_version": 1,
-      "model_input_path": "ml/models/XGBoost/xgb_dir_15m_v1/sol_usd/sol_usd_model_input_15m.csv"
+      "model_input_path": "ml/models/XGBoost/sol_usd/sol_usd_model_input_15m.parquet"
     }
   }
 }

@@ -15,19 +15,36 @@ def add_forward_labels(
     horizon_min: int = 15,
     close_col: str = "close",
     neutral_threshold: float = 0.001,  # 0.1% neutral band
+    # --- cost-aware config ---
+    fee_bps_per_side: float = 25.0,   # Alpaca-ish taker ~0.25% per side
+    extra_slippage_bps: float = 0.0,  # extra constant slippage per trade
+    use_proxy_slippage: bool = True,
+    spread_col: str = "spread_proxy_pct",
+    slippage_col: str = "slippage_proxy",
 ) -> pd.DataFrame:
     """
-    Add forward return + ternary direction labels based on SIMPLE return over `horizon_min` bars.
-    Assumes rows are in time order, 1 row per bar (1m in your pipeline).
+    Add forward return + direction labels based on SIMPLE return over `horizon_min` bars,
+    and cost-aware net labels after fees + slippage.
 
-    y_ret_fwd_{horizon}m  = close_{t+h} / close_t - 1
-    y_dir_fwd_{horizon}m  =  1 if y_ret >  neutral_threshold
-                             -1 if y_ret < -neutral_threshold
-                              0 otherwise
+    Gross labels:
+        y_ret_fwd_{horizon}m  = close_{t+h} / close_t - 1
+        y_dir_fwd_{horizon}m  =  1 if y_ret >  neutral_threshold
+                                 -1 if y_ret < -neutral_threshold
+                                  0 otherwise
+
+    Net labels (after costs):
+        y_ret_net_fwd_{horizon}m = y_ret_fwd_{horizon}m - total_cost_rate
+        y_dir_net_fwd_{horizon}m = same ternary logic but on net returns
+
+    Cost columns (per entry bar):
+        y_fee_rate_{horizon}m         = round-trip fee rate from fee_bps_per_side
+        y_micro_cost_rate_{horizon}m  = spread/slippage proxies + extra_slippage_bps
+        y_cost_rate_total_{horizon}m  = sum of the above
     """
     out = df.copy()
     close = pd.to_numeric(out[close_col], errors="coerce")
 
+    # ---------- Gross forward returns ----------
     shift_steps = horizon_min  # 1 row = 1 minute in your pipeline
     fwd_price = close.shift(-shift_steps)
     fwd_ret = fwd_price / close - 1.0
@@ -37,7 +54,7 @@ def add_forward_labels(
 
     out[y_ret_col] = fwd_ret
 
-    # Ternary label: -1, 0, 1 with neutral band
+    # Ternary gross label: -1, 0, 1 with neutral band
     y_dir = np.where(
         fwd_ret > neutral_threshold,
         1,
@@ -45,7 +62,60 @@ def add_forward_labels(
     ).astype("int8")
     out[y_dir_col] = y_dir
 
+    # ---------- Cost model per trade ----------
+    # Fees (round-trip) from per-side bps
+    fee_rate_per_side = fee_bps_per_side / 10_000.0
+    round_trip_fee_rate = 2.0 * fee_rate_per_side
+    extra_slip_rate = extra_slippage_bps / 10_000.0
+
+    fee_series = pd.Series(round_trip_fee_rate, index=out.index, dtype="float64")
+
+    # Microstructure: spread + slippage proxies + extra_slip_rate
+    if use_proxy_slippage and spread_col in out.columns:
+        spread_cost = (
+            pd.to_numeric(out[spread_col], errors="coerce")
+            .clip(lower=0.0)
+            .fillna(0.0)
+        )
+    else:
+        spread_cost = pd.Series(0.0, index=out.index, dtype="float64")
+
+    if use_proxy_slippage and slippage_col in out.columns:
+        slippage_cost = (
+            pd.to_numeric(out[slippage_col], errors="coerce")
+            .clip(lower=0.0)
+            .fillna(0.0)
+        )
+    else:
+        slippage_cost = pd.Series(0.0, index=out.index, dtype="float64")
+
+    micro_cost_rate = spread_cost + slippage_cost + extra_slip_rate
+    total_cost_rate = fee_series + micro_cost_rate
+
+    fee_col = f"y_fee_rate_{horizon_min}m"
+    micro_col = f"y_micro_cost_rate_{horizon_min}m"
+    total_col = f"y_cost_rate_total_{horizon_min}m"
+
+    out[fee_col] = fee_series
+    out[micro_col] = micro_cost_rate
+    out[total_col] = total_cost_rate
+
+    # ---------- Net forward returns and directions ----------
+    net_ret_col = f"y_ret_net_fwd_{horizon_min}m"
+    net_dir_col = f"y_dir_net_fwd_{horizon_min}m"
+
+    y_ret_net = fwd_ret - total_cost_rate
+    out[net_ret_col] = y_ret_net
+
+    y_dir_net = np.where(
+        y_ret_net > neutral_threshold,
+        1,
+        np.where(y_ret_net < -neutral_threshold, -1, 0),
+    ).astype("int8")
+    out[net_dir_col] = y_dir_net
+
     return out
+
 
 
 def parse_args() -> argparse.Namespace:
